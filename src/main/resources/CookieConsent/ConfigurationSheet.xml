@@ -54,8 +54,8 @@ $services.localization.render('cookieConsent.administration.description.intro')
   {{code language="none"}}{{html}}&lt;a href="#" id='ResetCookies'&gt;$services.localization.render('cookieConsent.administration.trigger.linklabel')&lt;/a&gt;{{/html}}{{/code}}
 
   **$services.localization.render('cookieConsent.administration.trigger.example'):** {{html}}&lt;a href="#" id='ResetCookies'&gt;$services.localization.render('cookieConsent.administration.trigger.linklabel')&lt;/a&gt;{{/html}}##
-$xwiki.jsfx.use('uicomponents/widgets/colorpicker/procolor.js', true)
-$xwiki.jsx.use('CookieConsent.ConfigurationSheet')
+
+
 #if($hasAdmin)
   ####
   ##Language objects management start
@@ -128,13 +128,7 @@ $xwiki.jsx.use('CookieConsent.ConfigurationSheet')
     #end
     ; $property.translatedPrettyName
     #if($property.name != 'lang')
-      #if($property.name == 'backgroundColor' || $property.name == 'foregroundColor')
-      (% class='clrPicker' %)(((
       : $doc.display($property.getName(),'edit',$crtLangObj)
-      )))
-      #else
-        : $doc.display($property.getName(),'edit',$crtLangObj)
-      #end
     #else
       : $crtLangObj.getProperty('lang').value
     #end
@@ -234,28 +228,224 @@ $xwiki.jsx.use('CookieConsent.ConfigurationSheet')
       </use>
     </class>
     <property>
-      <cache>long</cache>
+      <cache>forbid</cache>
     </property>
     <property>
-      <code>document.observe("dom:loaded", function() {
-  document.getElementsByClassName('clrPicker')[0].getElementsByTagName('input')[0].addClassName('procolor');
-  document.getElementsByClassName('clrPicker')[1].getElementsByTagName('input')[0].addClassName('procolor');
-});
-require(['xwiki-meta'], function (xm) {
-  $('secToken').setValue(xm.form_token);         // get the current CSRF token
-});
-$('saveButton').observe('click', function () {
-  window.location.reload('true');
+      <code>#set ($settings = $xwiki.getDocument('CookieConsent.WebHome').getObject('CookieConsent.ConfigurationClass', 'lang', "$xcontext.locale"))
+#if (!$settings)
+  #set ($settings = $xwiki.getDocument('CookieConsent.WebHome').getObject('CookieConsent.ConfigurationClass'))
+#end
+#if($settings.getProperty('active').value == 1)
+  #set($labels = ['necessaryLabel','preferencesLabel','statisticsLabel','marketingLabel'])
+    #if("$!{settings.getProperty($labels[0]).value}" != '')
+      #set($displayLabel0 = $!{settings.getProperty($labels[0]).value})
+    #else
+      #set($displayLabel0 = $services.localization.render('cookieConsent.configure.title.mandatory'))
+    #end
+    #if("$!{settings.getProperty($labels[1]).value}" != '')
+      #set($displayLabel1 = $!{settings.getProperty($labels[1]).value})
+    #else
+      #set($displayLabel1 = $services.localization.render('cookieConsent.configure.title.preferences'))
+    #end
+    #if("$!{settings.getProperty($labels[2]).value}" != '')
+      #set($displayLabel2 = $!{settings.getProperty($labels[2]).value})
+    #else
+      #set($displayLabel2 = $services.localization.render('cookieConsent.configure.title.statistics'))
+    #end
+    #if("$!{settings.getProperty($labels[3]).value}" != '')
+      #set($displayLabel3 = $!{settings.getProperty($labels[3]).value})
+    #else
+      #set($displayLabel3 = $services.localization.render('cookieConsent.configure.title.marketing'))
+    #end
+#end
+
+require(['jquery','xwiki-meta'], function($, xm) {
+  $(document).ready(function() {
+    let getCookie = function(key) {
+      let keyEquals = key + "=";
+      let value = false;
+
+      document.cookie.split(';').forEach(function(c) {
+        let cookie = c.trim();
+        if (cookie.indexOf(keyEquals) === 0) {
+          value = decodeURIComponent(cookie.substring(keyEquals.length));
+        }
+      });
+
+      return value;
+    }
+
+    let setCookie = function(key, value, days) {
+      var setValue      = key + '=' + encodeURIComponent(new String(value));
+      var setExpiration = "";
+
+      if (days) {
+        let date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        let setExpiration = "; expires=" + date.toGMTString();
+      }
+
+      var cookieString = setValue + setExpiration + ";path=/";
+      document.cookie  = cookieString;
+    }
+
+    let clearCookie = function(key) {
+      setCookie(key,'',-1);
+    }
+
+    let animation = function(event, element, animationType) {
+      const $el = $('#' + element);
+
+      switch(animationType) {
+        case 'none':
+          event === 'show' ? $el.show() : $el.hide();
+          break;
+
+        case 'slide':
+          event === 'show' ? $el.slideDown(1000) : $el.slideUp(1000);
+          break;
+
+        case 'fade':
+          event === 'show' ? $el.fadeIn(1000) : $el.fadeOut(1000);
+          break;
+      }
+    };
+
+    let showDisclaimer = async function() {
+      let settings =
+        {
+          'active' : "$settings.getProperty('active').value",
+          'type' : "$settings.getProperty('type').value",
+          'position' : "$settings.getProperty('position').value",
+          'animation' : "$settings.getProperty('animation').value",
+          'buttonText' : "$escapetool.javascript($!settings.getProperty('buttonText').value)",
+          'rejectButtonText' : "$escapetool.javascript($!settings.getProperty('rejectButtonText').value)",
+          'configButtonText' : "$escapetool.javascript($!settings.getProperty('configButtonText').value)",
+          'disclaimer1' : "$escapetool.javascript($!settings.disclaimer1)",
+          'disclaimer2' : "$escapetool.javascript($!settings.disclaimer2)",
+          'necessaryInfoBox' : "$escapetool.javascript($settings.getProperty('necessaryInfoBox').value.trim())",
+          'preferencesInfoBox' : "$escapetool.javascript($settings.getProperty('preferencesInfoBox').value.trim())",
+          'statisticsInfoBox' : "$escapetool.javascript($settings.getProperty('statisticsInfoBox').value.trim())",
+          'marketingInfoBox' : "$escapetool.javascript($settings.getProperty('marketingInfoBox').value.trim())",
+          'mandatoryLabel' : "$escapetool.javascript($displayLabel0)",
+          'preferencesLabel' : "$escapetool.javascript($displayLabel1)",
+          'statisticsLabel' : "$escapetool.javascript($displayLabel2)",
+          'marketingLabel' : "$escapetool.javascript($displayLabel3)",
+          'activeCookieTypes' : "$stringtool.join($settings.getValue('activeCookieTypes'), ',')"
+       };
+
+      if (settings.active == '0' || !settings.activeCookieTypes) {
+        return;
+      }
+
+      $('#cookieConsent').remove();
+
+      var activeCookieTypes = settings.activeCookieTypes.split(',');
+
+      var htmlContent1 = settings.disclaimer1
+                       + '&lt;button class="button" role="button" name="cookieConsentHide" id="cookieConsentHide"&gt;'
+                       + settings.buttonText
+                       + '&lt;/button&gt;'
+                       + '&lt;button class="button" role="button" name="cookieConsentRejectAll" id="cookieConsentRejectAll"&gt;'
+                       + settings.rejectButtonText
+                       + '&lt;/button&gt;'
+                       + '&lt;button class="button" role="button" name="cookieConsentConfig" id="cookieConsentConfig"&gt;'
+                       + settings.configButtonText
+                       + '&lt;/button&gt;';
+
+      var htmlContent2 = settings.disclaimer2 + '&lt;div id="CookieSelectPane"&gt;';
+
+      for (let i = 0; i &lt; activeCookieTypes.length; i++) {
+        let element = activeCookieTypes[i];
+        let label = settings[element + 'Label'];
+        let infoBox = settings[element + 'InfoBox'];
+        let disabled = '';
+
+        if (element === 'necessary') {
+          label = settings.mandatoryLabel;
+          disabled = 'disabled="disabled" checked="checked"';
+        }
+
+        htmlContent2 = htmlContent2
+                     + '&lt;div class="CookieSelectButtonWrapper" title="' + infoBox + '"&gt;'
+                     + '&lt;label for="CookieButton' + label + '"&gt;'
+                     + '&lt;input id="CookieButton' + label + '" class="CookieButton" tabindex="1" ' + disabled +' type="checkbox"&gt;'
+                     + label + '&lt;/label&gt;'
+                     + '&lt;/div&gt;';
+      }
+
+      htmlContent2 = htmlContent2 + '&lt;/div&gt;&lt;button class="button" role="button" name="cookieConsentOK" id="cookieConsentOK"&gt;OK&lt;/button&gt;';
+
+      var html = '&lt;div id="cookieConsent" style="display: none;"&gt;'
+               + '&lt;div class="col-md-2"&gt;&lt;/div&gt;'
+               + '&lt;div id="cookieConsentContent" class="col-md-8"&gt;'
+               + htmlContent1
+               + '&lt;/div&gt;'
+               + '&lt;div class="col-md-2"&gt;&lt;/div&gt;'
+               + '&lt;/div&gt;'
+               + '&lt;/div&gt;';
+
+      $('#xwikimaincontainerinner').before(html);
+      $("#cookieConsentHide").on('click', function() {
+        hideDisclaimer(activeCookieTypes, settings.animation);
+      });
+      $("#cookieConsentRejectAll").on("click", function() {
+        setCookie('cookieConsent', 'hide', 365);
+        clearCookie('gdprSettings');
+        animation('hide', 'cookieConsent', settings.animation);
+      }),
+      $("#cookieConsentConfig").on("click", function() {
+        $("#cookieConsentContent").html(htmlContent2);
+        $("#cookieConsentOK").off('click').on('click', function() {
+          let selectedElements = ["necessary"];
+          for (let i = 0; i &lt; activeCookieTypes.length; i++) {
+            let element = activeCookieTypes[i];
+
+            if (element === 'necessary') {
+              continue;
+            }
+
+            let label = settings[element + 'Label'];
+
+            if ($('#CookieButton' + label).is(':checked')) {
+              selectedElements.push(element);
+            }
+          }
+          hideDisclaimer(selectedElements, settings.animation);
+        })
+      });
+
+      animation('show', 'cookieConsent', settings.animation);
+    }
+
+    let hideDisclaimer = function(param, animationType) {
+      setCookie('cookieConsent', 'hide', 365);
+      setCookie('gdprSettings', param, 365);
+      animation('hide', 'cookieConsent', animationType);
+    }
+
+    $('#ResetCookies').on('click', function() {
+      clearCookie('cookieConsent');
+      clearCookie('gdprSettings');
+      showDisclaimer();
+    });
+
+    $('#secToken').val(xm.form_token);
+
+    $('#saveButton').on('click', function () {
+      window.location.reload(true);
+    });
+  });
 });</code>
     </property>
     <property>
-      <name>ProColor class</name>
+      <name>Javascript</name>
     </property>
     <property>
-      <parse/>
+      <parse>1</parse>
     </property>
     <property>
-      <use>onDemand</use>
+      <use>always</use>
     </property>
   </object>
 </xwikidoc>
